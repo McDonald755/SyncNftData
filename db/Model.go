@@ -13,5 +13,17 @@ type NFT_DATA struct {
 }
 
 func (NFT_DATA) TableName() string {
-	return "nft_data"
+	return "NFT_DATA"
+}
+
+type ORACLE_DATA struct {
+	ID          string `orm:"ID" json:"ID"`
+	CREATEDTIME string `orm:"CREATED_TIME" json:"CREATED_TIME"`
+	UPDATEDTIME string `orm:"UPDATED_TIME" json:"UPDATED_TIME"`
+	ADDRESS     string `orm:"ADDRESS" json:"ADDRESS"`
+	START_BLOCK string `orm:"START_BLOCK" json:"START_BLOCK"`
+}
+
+func (ORACLE_DATA) TableName() string {
+	return "ORACLE_DATA"
 }

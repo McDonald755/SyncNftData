@@ -1,26 +1,20 @@
 package db
 
-import (
-	"SyncEthData/config"
-	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-)
+import "SyncNftData/config"
 
-func SaveData(block *BLOCK, header *HEADER, trx *[]TRANSACTION) {
-	dbErr := gorm.DB{}
-	tx := config.DB.Begin()
-	dbErr = *tx.Create(block)
-	dbErr = *tx.Create(header)
-	if len(*trx) > 0 {
-		dbErr = *tx.Create(trx)
-	}
+func GetToAccount(from int, limit int) *[]string {
+	//todo 看看能不能一次获取到所有数据，如果太大的话就得分页获取
+	var result []string
+	row := config.DB.Select("TO_ACCOUNT").Where("TX_DATA <> ?", "0x").Row()
+	row.Scan(&result)
+	return &result
+}
 
-	if dbErr.Error != nil {
-		log.Error(dbErr.Error)
-		log.Error("----------------------Error Num is:", block.BLOCKNUM)
-		tx.Rollback()
-	} else {
-		//fmt.Println("save:", block.BLOCKNUM)
-		tx.Commit()
-	}
+func SaveOracle(addr []string) {
+	// todo save数据
+}
+
+func GetOracleAddr() *[]string {
+	// TODO 获取Oracle的地址 看看能不能一次性获取到
+	return nil
 }
