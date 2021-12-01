@@ -1,0 +1,12 @@
+database:
+  driverName: mysql
+  host: localhost
+  port: "3306"
+  databaseName: nft_data
+  username: root
+  password: root
+  charset: utf8mb4
+  loc: Asia/Shanghai
+infura:
+  #  url1: 
+  #  url2: 
