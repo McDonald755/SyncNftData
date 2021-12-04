@@ -17,13 +17,15 @@ import (
 var (
 	APPVIPER *viper.Viper
 	DB       *gorm.DB
-	CLIENT   []*ethclient.Client
+	//CLIENTS   []*ethclient.Client
+	CLIENT *ethclient.Client
 )
 
 func init() {
 	APPVIPER = initAppConfig()
 	DB = initDB()
 	CLIENT = initClient()
+	//CLIENTS = initClients()
 }
 
 func initAppConfig() *viper.Viper {
@@ -67,7 +69,18 @@ func initDB() *gorm.DB {
 	return db
 }
 
-func initClient() []*ethclient.Client {
+func initClient() *ethclient.Client {
+	url := APPVIPER.GetString("infura.url1")
+	client, err := ethclient.Dial(url)
+	if err != nil {
+		log.Error("client faild:", err)
+	}
+
+	log.Infoln("connect client success")
+	return client
+}
+
+func initClients() []*ethclient.Client {
 	var clients []*ethclient.Client
 	for i := 1; i < 102; i++ {
 		url := APPVIPER.GetString("infura.url" + strconv.Itoa(i))

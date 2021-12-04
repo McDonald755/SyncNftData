@@ -1,15 +1,19 @@
 package db
 
+import (
+	"time"
+)
+
 type NFT_DATA struct {
-	ID          string `orm:"ID" json:"ID"`
-	CREATEDTIME string `orm:"CREATED_TIME" json:"CREATED_TIME"`
-	UPDATEDTIME string `orm:"UPDATED_TIME" json:"UPDATED_TIME"`
-	TOKENID     string `orm:"TOKEN_ID" json:"TOKEN_ID"`
-	TOKENURI    string `orm:"TOKEN_URI" json:"TOKEN_URI"`
-	TOKENSYMBOL string `orm:"TOKEN_SYMBOL" json:"TOKEN_SYMBOL"`
-	TOKENNAME   string `orm:"TOKEN_NAME" json:"TOKEN_NAME"`
-	OWNER       string `orm:"OWNER" json:"OWNER"`
-	ORACLEADD   string `orm:"ORACLE_ADD" json:"ORACLE_ADD"`
+	ID          int64     `gorm:"column:ID" json:"ID"`
+	CreatedTime time.Time `gorm:"column:created_time" json:"created_time"`
+	UpdatedTime time.Time `gorm:"column:updated_time" json:"updated_time"`
+	TokenId     int64     `gorm:"column:token_id" json:"token_id"`
+	TokenUri    string    `gorm:"column:token_uri" json:"token_uri"`
+	TokenSymbol string    `gorm:"column:token_symbol" json:"token_symbol"`
+	TokenName   string    `gorm:"column:token_name" json:"token_name"`
+	Owner       string    `gorm:"column:owner" json:"owner"`
+	OracleAdd   string    `gorm:"column:oracle_add" json:"oracle_add"`
 }
 
 func (NFT_DATA) TableName() string {
@@ -17,11 +21,12 @@ func (NFT_DATA) TableName() string {
 }
 
 type ORACLE_DATA struct {
-	ID          string `orm:"ID" json:"ID"`
-	CREATEDTIME string `orm:"CREATED_TIME" json:"CREATED_TIME"`
-	UPDATEDTIME string `orm:"UPDATED_TIME" json:"UPDATED_TIME"`
-	ADDRESS     string `orm:"ADDRESS" json:"ADDRESS"`
-	START_BLOCK string `orm:"START_BLOCK" json:"START_BLOCK"`
+	ID          int64     `gorm:"column:ID" json:"ID"`
+	CreatedTime time.Time `gorm:"column:created_time" json:"created_time"`
+	UpdatedTime time.Time `gorm:"column:updated_time" json:"updated_time"`
+	Address     string    `gorm:"column:address" json:"address"`
+	TokenSymbol string    `gorm:"column:token_symbol" json:"token_symbol"`
+	TokenName   string    `gorm:"column:token_name" json:"token_name"`
 }
 
 func (ORACLE_DATA) TableName() string {

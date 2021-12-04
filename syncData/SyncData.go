@@ -1,77 +1,159 @@
 package syncData
 
 import (
+	"SyncNftData/config"
 	"SyncNftData/db"
 	"SyncNftData/oracle"
 	"SyncNftData/utils"
 	"context"
-	"fmt"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
 	"math/big"
-	"strconv"
 	"strings"
 )
 
-//todo 多线程分开跑
-func GetOracleAddr(client *ethclient.Client, from int) {
-	number, err := client.BlockNumber(context.Background())
-	if err != nil {
-		log.Error("Get block number error:", err)
-	}
-	//i就是从有721的那个区快开始
-	for i := from; i < int(number); i++ {
-		accounts := db.GetToAccount(i, 1000)
-		var addrs []string
-		for _, addr := range *accounts {
-			code, err := client.CodeAt(context.Background(), common.HexToAddress(addr), nil)
-			if err != nil {
-				fmt.Println(err)
-			}
+func SyncData(from int64) {
+	//get all of nft contract addr data
+	oracles := db.GetOracleAddrAll()
 
-			ok := utils.CheckOracleType(code)
-			if ok {
-				addrs = append(addrs, addr)
-			}
-		}
-		db.SaveOracle(addrs)
+	//init standard ERC-721 contract data
+	contractABI, err := abi.JSON(strings.NewReader(oracle.OracleABI))
+	if err != nil {
+		log.Error("Read Contract Error:", err)
 	}
-	from = int(number)
+
+	for true {
+		//get block data
+		blockNum, err := config.CLIENT[0].BlockByNumber(context.Background(), big.NewInt(from))
+		if err != nil {
+			log.Error(err)
+		}
+
+		if err.Error() == "not found" && blockNum == nil {
+			continue
+		}
+
+		//Analyze the transaction
+		oracleType := utils.CheckOracleType(blockNum.Transactions(), oracles)
+		//filter and save nft data
+		utils.ScanLog(config.CLIENT[0], contractABI, oracleType)
+		from += 1
+	}
 }
 
-func GetNftData(client *ethclient.Client, from *big.Int) {
-	number, err := client.BlockNumber(context.Background())
-	if err != nil {
-		log.Error("Get block number error:", err)
+/**
+===================================================================Methods not used yet, don't remove===================================================================
+*/
+
+/*func SyncOracleAddr() {
+	wg := sync.WaitGroup{}
+	totalNum := db.GetTrxTotalNum()
+	distance := math.Ceil((float64(totalNum)) / 1.0)
+	page := math.Ceil(float64(distance) / 5000000.0)
+
+	for i := 0; i < 1; i++ {
+		saveOracleData(int64(distance), int64(i), page)
 	}
-	addrs := db.GetOracleAddr()
-	contractABI, _ := abi.JSON(strings.NewReader(oracle.OracleABI))
+	wg.Wait()
+}
+
+func saveOracleData(distance int64, i int64, page float64) {
+	startNum := distance * i
+	for y := 0; y < int(page); {
+		vos := db.GetToAccount(startNum)
+		utils.CheckOracleType(vos)
+		y += 1
+		startNum = int64(y)*50000 + startNum
+	}
+}
+
+func ScanOracleData(from int64) {
+	for true {
+		number, err := config.CLIENT[0].BlockNumber(context.Background())
+		if err != nil {
+			log.Error("Get Block Number Error:", err)
+		}
+		for from < int64(number) {
+			vos := db.GetTrxByNum(from)
+			utils.CheckOracleType(vos)
+			syncNftData(from)
+			from += 1
+			time.Sleep(time.Second)
+		}
+	}
+}
+
+func SyncNftData() {
+	gap := big.NewInt(6000)
+	oracles := db.GetOracleNum()
+	distance := int(oracles) / len(config.CLIENT)
+
+	contractABI, err := abi.JSON(strings.NewReader(oracle.OracleABI))
+	if err != nil {
+		log.Error("Read Contract Error:", err)
+	}
+
+	for i, client := range config.CLIENT {
+		addr := db.GetOracleAddr(i, i+distance)
+		go scanLog(client, contractABI, addr, gap)
+	}
+}
+
+func scanLog(client *ethclient.Client, contractABI abi.ABI, addr *[]string, gap *big.Int) {
+	var (
+		from, to *big.Int
+		newGap   = gap
+	)
+
+	accounts := utils.TransferAccounts(addr)
 	query := ethereum.FilterQuery{
 		Topics: [][]common.Hash{
 			{contractABI.Events["Transfer"].ID},
 		},
 		FromBlock: from,
-		ToBlock:   big.NewInt(int64(number)),
-		Addresses: *utils.TransferAddr(addrs),
+		ToBlock:   to.Add(from, newGap),
+		Addresses: *accounts,
 	}
 
 	filterLogs, err := client.FilterLogs(context.Background(), query)
+	if err != nil && err.Error() != "" {
+		log.Error("Get log error:", err)
+	}
+	if err.Error() == "" {
+		from, to, newGap = utils.CalculateBlock(from, -1, gap)
+	}
+	from, to, newGap = utils.CalculateBlock(from, len(filterLogs), gap)
+
+	for _, l := range filterLogs {
+		data := utils.TransferNftData(l)
+		db.SaveOrUpdateNftData(data)
+	}
+}
+
+func syncNftData(from int64) {
+	var to *big.Int
+	all := db.GetOracleAddrAll()
+	accounts := utils.TransferAccounts(all)
+	contractABI, err := abi.JSON(strings.NewReader(oracle.OracleABI))
+
 	if err != nil {
-		fmt.Println(err)
+		log.Error("Read Contract Error:", err)
+	}
+	query := ethereum.FilterQuery{
+		Topics: [][]common.Hash{
+			{contractABI.Events["Transfer"].ID},
+		},
+		FromBlock: big.NewInt(from),
+		ToBlock:   to.Add(big.NewInt(from), big.NewInt(1)),
+		Addresses: *accounts,
+	}
+
+	filterLogs, err := config.CLIENT[0].FilterLogs(context.Background(), query)
+	if err != nil && err.Error() != "" {
+		log.Error("Get log error:", err)
 	}
 	for _, l := range filterLogs {
-		fmt.Println(l.Address)
-		fmt.Println("tx", l.TxHash.Hex())
-		fmt.Println("from", common.HexToAddress(l.Topics[1].Hex()).String())
-		fmt.Println("to", common.HexToAddress(l.Topics[2].Hex()).String())
-		parseInt, err := strconv.ParseInt(l.Topics[3].Hex(), 0, 16)
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println("tokenId", parseInt)
+		data := utils.TransferNftData(l)
+		db.SaveOrUpdateNftData(data)
 	}
-	from = big.NewInt(int64(number))
-}
+}*/
