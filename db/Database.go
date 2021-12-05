@@ -8,6 +8,10 @@ func SaveOracle(oracle *ORACLE_DATA) {
 	config.DB.Create(oracle)
 }
 
+func SaveOracles(oracle *[]ORACLE_DATA) {
+	config.DB.Create(oracle)
+}
+
 func SaveOrUpdateNftData(nft *NFT_DATA) {
 	var id int64
 	result := config.DB.Table("NFT_DATA").Select("ID").Where("oracle_add,token_id", nft.OracleAdd, nft.TokenId).Find(&id)
@@ -24,11 +28,21 @@ func GetOracleAddrAll() map[string]byte {
 		addres []string
 		result map[string]byte
 	)
+	result = make(map[string]byte)
 	config.DB.Table("ORACLE_DATA").Select("address").Find(&addres)
 	for _, addre := range addres {
-		result[addre] = byte(0)
+		result[addre] = byte(1)
 	}
 	return result
+}
+
+func TGetOracleAddrAll() []string {
+	var (
+		addres []string
+	)
+	config.DB.Table("ORACLE_DATA").Select("address").Find(&addres)
+
+	return addres
 }
 
 /**

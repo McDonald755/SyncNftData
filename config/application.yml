@@ -2,11 +2,11 @@ database:
   driverName: mysql
   host: localhost
   port: "3306"
-  databaseName: nft_data
+  databaseName: eth_data
   username: root
   password: root
   charset: utf8mb4
   loc: Asia/Shanghai
-infura:
-  #  url1: 
-  #  url2: 
+node:
+  url1: "wss://bsc.getblock.io/mainnet/?api_key=c200e5f6-259d-49f2-9fb1-c63bb7c330d3"
+  url2: "wss://apis.ankr.com/wss/66a01bc1df4743058edfcc9268147e61/07043854dc1c85eb6f24cfd8c21d79e8/binance/full/main"

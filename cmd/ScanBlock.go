@@ -1,8 +1,14 @@
 package cmd
 
 import (
+	"SyncNftData/db"
+	"SyncNftData/oracle"
 	"SyncNftData/syncData"
+	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/spf13/cobra"
+	"strings"
+	"sync"
 )
 
 func ScanCmd() *cobra.Command {
@@ -12,7 +18,14 @@ func ScanCmd() *cobra.Command {
 		Short: "s",
 		Long:  "It will sync the latest block ",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			syncData.SyncData(blockNum)
+			wg := sync.WaitGroup{}
+			Oracles := db.GetOracleAddrAll()
+			//init standard ERC-721 contract data
+			contractABI, err := abi.JSON(strings.NewReader(oracle.OracleABI))
+			if err != nil {
+				fmt.Println(err)
+			}
+			syncData.SyncData(nil, blockNum, Oracles, contractABI, &wg)
 			return nil
 		},
 	}

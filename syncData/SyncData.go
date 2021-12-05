@@ -1,44 +1,60 @@
 package syncData
 
 import (
-	"SyncNftData/config"
-	"SyncNftData/db"
-	"SyncNftData/oracle"
 	"SyncNftData/utils"
 	"context"
+	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
 	"math/big"
-	"strings"
+	"sync"
 )
 
-func SyncData(from int64) {
-	//get all of nft contract addr data
-	oracles := db.GetOracleAddrAll()
-
-	//init standard ERC-721 contract data
-	contractABI, err := abi.JSON(strings.NewReader(oracle.OracleABI))
-	if err != nil {
-		log.Error("Read Contract Error:", err)
-	}
-
+func SyncData(client *ethclient.Client, from int64, oracles map[string]byte, contractABI abi.ABI, wg *sync.WaitGroup) {
 	for true {
 		//get block data
-		blockNum, err := config.CLIENT[0].BlockByNumber(context.Background(), big.NewInt(from))
+		blockNum, err := client.BlockByNumber(context.Background(), big.NewInt(from))
 		if err != nil {
-			log.Error(err)
+			log.Error("BlockByNumber:", err)
 		}
 
-		if err.Error() == "not found" && blockNum == nil {
+		if blockNum == nil && err.Error() == "not found" {
 			continue
 		}
 
 		//Analyze the transaction
-		oracleType := utils.CheckOracleType(blockNum.Transactions(), oracles)
+		oracleType := utils.CheckOracleType(client, blockNum.Transactions(), oracles)
+
 		//filter and save nft data
-		utils.ScanLog(config.CLIENT[0], contractABI, oracleType)
+		utils.ScanLog(client, contractABI, oracleType, from)
+		fmt.Println(from)
 		from += 1
 	}
+	wg.Done()
+}
+
+func TSyncData(client *ethclient.Client, from int64, oracles []string, contractABI abi.ABI, wg *sync.WaitGroup) {
+	for true {
+		//get block data
+		blockNum, err := client.BlockByNumber(context.Background(), big.NewInt(from))
+		if err != nil {
+			log.Error("BlockByNumber:", err)
+		}
+
+		if blockNum == nil && err.Error() == "not found" {
+			continue
+		}
+
+		//Analyze the transaction
+		//oracleType := utils.TCheckOracleType(client,blockNum.Transactions(), oracles)
+
+		//filter and save nft data
+		utils.TScanLog(client, contractABI, oracles, from)
+		fmt.Println(from)
+		from += 1
+	}
+	wg.Done()
 }
 
 /**

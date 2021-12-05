@@ -1,11 +1,12 @@
 package utils
 
 import (
-	"SyncNftData/config"
 	"SyncNftData/db"
 	"SyncNftData/oracle"
 	"context"
 	"encoding/hex"
+	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,12 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
 	"math/big"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func CheckOracleType(trxs types.Transactions, oracles map[string]byte) map[string]byte {
+func CheckOracleType(client *ethclient.Client, trxs types.Transactions, oracles map[string]byte) map[string]byte {
 	var (
 		balanceOf         = "70a08231"
 		ownerOf           = "6352211e"
@@ -31,7 +33,7 @@ func CheckOracleType(trxs types.Transactions, oracles map[string]byte) map[strin
 		safeTransferFrom2 = "b88d4fde"
 	)
 	for _, trx := range trxs {
-		if trx.To().String() == "" {
+		if trx.To() == nil {
 			//encode tx_data to string
 			txData := hex.EncodeToString(trx.Data())
 			b1 := strings.Contains(txData, balanceOf)
@@ -44,7 +46,7 @@ func CheckOracleType(trxs types.Transactions, oracles map[string]byte) map[strin
 			b8 := strings.Contains(txData, safeTransferFrom)
 			b9 := strings.Contains(txData, safeTransferFrom2)
 			if b1 && b2 && b3 && b4 && b5 && b6 && b7 && b8 && b9 {
-				receipt, err := config.CLIENT.TransactionReceipt(context.Background(), trx.Hash())
+				receipt, err := client.TransactionReceipt(context.Background(), trx.Hash())
 				if err != nil {
 					log.Error("TransactionReceipt err:", err)
 				}
@@ -52,7 +54,7 @@ func CheckOracleType(trxs types.Transactions, oracles map[string]byte) map[strin
 					oracles[receipt.ContractAddress.String()] = byte(0)
 
 					//save data
-					data := transferOracle(trx, receipt.ContractAddress.String())
+					data := transferOracle(client, receipt.ContractAddress.String())
 					db.SaveOracle(data)
 				}
 			}
@@ -61,8 +63,8 @@ func CheckOracleType(trxs types.Transactions, oracles map[string]byte) map[strin
 	return oracles
 }
 
-func transferOracle(trx *types.Transaction, addres string) *db.ORACLE_DATA {
-	symbol, name, _ := getTokenNameAndSymbol(addres, nil)
+func transferOracle(client *ethclient.Client, addres string) *db.ORACLE_DATA {
+	symbol, name, _ := getTokenNameAndSymbol(client, addres, nil)
 	data := db.ORACLE_DATA{
 		Address:     addres,
 		TokenSymbol: symbol,
@@ -73,10 +75,10 @@ func transferOracle(trx *types.Transaction, addres string) *db.ORACLE_DATA {
 	return &data
 }
 
-func getTokenNameAndSymbol(addr string, tokenId *big.Int) (string, string, string) {
+func getTokenNameAndSymbol(client *ethclient.Client, addr string, tokenId *big.Int) (string, string, string) {
 	var s, n, i string
 	address := common.HexToAddress(addr)
-	newOracle, err := oracle.NewOracle(address, config.CLIENT)
+	newOracle, err := oracle.NewOracle(address, client)
 	if err != nil {
 		log.Error("Init Oracle Error:", err, "Oracle Addr Is :", addr)
 	}
@@ -108,16 +110,15 @@ func getTokenNameAndSymbol(addr string, tokenId *big.Int) (string, string, strin
 	return s, n, i
 }
 
-func ScanLog(client *ethclient.Client, contractABI abi.ABI, addres map[string]byte) {
-	var from *big.Int
+func ScanLog(client *ethclient.Client, contractABI abi.ABI, addres map[string]byte, from int64) {
 
 	accounts := TransferAccounts(addres)
 	query := ethereum.FilterQuery{
 		Topics: [][]common.Hash{
 			{contractABI.Events["Transfer"].ID},
 		},
-		FromBlock: from,
-		ToBlock:   from,
+		FromBlock: big.NewInt(from),
+		ToBlock:   big.NewInt(from),
 		Addresses: *accounts,
 	}
 
@@ -128,6 +129,33 @@ func ScanLog(client *ethclient.Client, contractABI abi.ABI, addres map[string]by
 
 	for _, l := range filterLogs {
 		data := TransferNftData(l)
+		fmt.Println("保存数据", from)
+		log.Info("保存数据", from)
+		db.SaveOrUpdateNftData(data)
+	}
+}
+
+func TScanLog(client *ethclient.Client, contractABI abi.ABI, addres []string, from int64) {
+
+	accounts := TTransferAccounts(addres)
+	query := ethereum.FilterQuery{
+		Topics: [][]common.Hash{
+			{contractABI.Events["Transfer"].ID},
+		},
+		FromBlock: big.NewInt(from),
+		ToBlock:   big.NewInt(from),
+		Addresses: *accounts,
+	}
+
+	filterLogs, err := client.FilterLogs(context.Background(), query)
+	if err != nil {
+		log.Error("Get log error:", err)
+	}
+
+	for _, l := range filterLogs {
+		data := TransferNftData(l)
+		fmt.Println("保存数据", from)
+		log.Info("保存数据", from)
 		db.SaveOrUpdateNftData(data)
 	}
 }
@@ -138,7 +166,7 @@ func TransferNftData(l types.Log) *db.NFT_DATA {
 		log.Error(err.Error())
 	}
 
-	symbol, name, uri := getTokenNameAndSymbol(l.Address.String(), big.NewInt(parseInt))
+	symbol, name, uri := getTokenNameAndSymbol(nil, l.Address.String(), big.NewInt(parseInt))
 	data := db.NFT_DATA{
 		TokenId:     parseInt,
 		TokenSymbol: symbol,
@@ -156,6 +184,44 @@ func TransferAccounts(addres map[string]byte) *[]common.Address {
 		result = append(result, common.HexToAddress(k))
 	}
 	return &result
+}
+
+func TTransferAccounts(addres []string) *[]common.Address {
+	result := []common.Address{}
+	for _, v := range addres {
+		result = append(result, common.HexToAddress(v))
+	}
+	return &result
+}
+
+//get 721Token message by bsc
+func CrawlData(page int) {
+	for i := 1; i <= page; i++ {
+		datas := []db.ORACLE_DATA{}
+		url := "https://bscscan.com/tokens-nft?ps=100&p=" + strconv.Itoa(i)
+		get, err := http.Get(url)
+		if err != nil {
+			fmt.Println(err)
+		}
+		reader, err := goquery.NewDocumentFromReader(get.Body)
+		if err != nil {
+			fmt.Println(err)
+		}
+		reader.Find(".text-primary").Each(func(i int, s *goquery.Selection) {
+			attr, _ := s.Attr("title")
+			if s.Text() != "Etherscan" {
+				data := db.ORACLE_DATA{
+					CreatedTime: time.Now(),
+					UpdatedTime: time.Now(),
+					Address:     attr,
+					TokenName:   s.Text(),
+				}
+				datas = append(datas, data)
+			}
+		})
+		db.SaveOracles(&datas)
+		time.Sleep(time.Second)
+	}
 }
 
 /**
