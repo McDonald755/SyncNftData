@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"SyncNftData/config"
 	"SyncNftData/db"
 	"SyncNftData/oracle"
 	"context"
@@ -77,8 +78,7 @@ func transferOracle(client *ethclient.Client, addres string) *db.ORACLE_DATA {
 
 func getTokenNameAndSymbol(client *ethclient.Client, addr string, tokenId *big.Int) (string, string, string) {
 	var s, n, i string
-	address := common.HexToAddress(addr)
-	newOracle, err := oracle.NewOracle(address, client)
+	newOracle, err := oracle.NewOracle(common.HexToAddress(addr), client)
 	if err != nil {
 		log.Error("Init Oracle Error:", err, "Oracle Addr Is :", addr)
 	}
@@ -128,15 +128,14 @@ func ScanLog(client *ethclient.Client, contractABI abi.ABI, addres map[string]by
 	}
 
 	for _, l := range filterLogs {
-		data := TransferNftData(l)
-		fmt.Println("保存数据", from)
-		log.Info("保存数据", from)
+		data := TransferNftData(client, l)
+		log.Infoln("保存数据", from)
 		db.SaveOrUpdateNftData(data)
 	}
 }
 
-func TScanLog(client *ethclient.Client, contractABI abi.ABI, addres []string, from int64) {
-
+func TScanLog(client *ethclient.Client, contractABI abi.ABI, addres []string, from int64) error {
+	var l int
 	accounts := TTransferAccounts(addres)
 	query := ethereum.FilterQuery{
 		Topics: [][]common.Hash{
@@ -151,29 +150,40 @@ func TScanLog(client *ethclient.Client, contractABI abi.ABI, addres []string, fr
 	if err != nil {
 		log.Error("Get log error:", err)
 	}
+	//rate limit
+	if err != nil && err.Error() == "too many requests" {
+		time.Sleep(time.Second * 10)
+		return err
+	}
+
+	if err != nil {
+		l = -1
+	} else {
+		l = len(filterLogs)
+	}
 
 	for _, l := range filterLogs {
-		data := TransferNftData(l)
+		data := TransferNftData(client, l)
 		fmt.Println("保存数据", from)
 		log.Info("保存数据", from)
 		db.SaveOrUpdateNftData(data)
 	}
+	return nil
 }
 
-func TransferNftData(l types.Log) *db.NFT_DATA {
-	parseInt, err := strconv.ParseInt(l.Topics[3].Hex(), 0, 16)
+func TransferNftData(client *ethclient.Client, l types.Log) *db.NFT_DATA {
+	fmt.Println(l.Topics[3].Hex())
+	parseInt, err := strconv.ParseInt(l.Topics[3].Hex(), 0, 64)
 	if err != nil {
-		log.Error(err.Error())
+		log.Error(err)
 	}
 
-	symbol, name, uri := getTokenNameAndSymbol(nil, l.Address.String(), big.NewInt(parseInt))
+	_, _, uri := getTokenNameAndSymbol(client, l.Address.String(), big.NewInt(parseInt))
 	data := db.NFT_DATA{
-		TokenId:     parseInt,
-		TokenSymbol: symbol,
-		TokenName:   name,
-		TokenUri:    uri,
-		Owner:       common.HexToAddress(l.Topics[2].Hex()).String(),
-		OracleAdd:   l.Address.String(),
+		TokenId:   parseInt,
+		TokenUri:  uri,
+		Owner:     common.HexToAddress(l.Topics[2].Hex()).String(),
+		OracleAdd: l.Address.String(),
 	}
 	return &data
 }
@@ -195,32 +205,42 @@ func TTransferAccounts(addres []string) *[]common.Address {
 }
 
 //get 721Token message by bsc
-func CrawlData(page int) {
-	for i := 1; i <= page; i++ {
+func CrawlData(from int, page int) {
+	for i := from; i <= page; i++ {
 		datas := []db.ORACLE_DATA{}
 		url := "https://bscscan.com/tokens-nft?ps=100&p=" + strconv.Itoa(i)
 		get, err := http.Get(url)
 		if err != nil {
 			fmt.Println(err)
+			i -= 1
+			continue
 		}
 		reader, err := goquery.NewDocumentFromReader(get.Body)
 		if err != nil {
 			fmt.Println(err)
 		}
 		reader.Find(".text-primary").Each(func(i int, s *goquery.Selection) {
-			attr, _ := s.Attr("title")
+			var symbol string
+			attr, _ := s.Attr("href")
+			if attr != "https://etherscan.io/" {
+				attr = attr[7:]
+				symbol, _, _ = getTokenNameAndSymbol(config.CLIENTS[0], attr, nil)
+				fmt.Println(i, ":", attr)
+			}
+
 			if s.Text() != "Etherscan" {
 				data := db.ORACLE_DATA{
 					CreatedTime: time.Now(),
 					UpdatedTime: time.Now(),
 					Address:     attr,
 					TokenName:   s.Text(),
+					TokenSymbol: symbol,
 				}
 				datas = append(datas, data)
 			}
 		})
 		db.SaveOracles(&datas)
-		time.Sleep(time.Second)
+		fmt.Println(i)
 	}
 }
 
@@ -228,7 +248,7 @@ func CrawlData(page int) {
 ===================================================================Methods not used yet, don't remove===================================================================
 */
 
-/*func CalculateBlock(from *big.Int, len int, gap *big.Int) (*big.Int, *big.Int, *big.Int) {
+func CalculateBlock(from *big.Int, len int, gap *big.Int) (*big.Int, *big.Int, *big.Int) {
 	var startBlock, endBlock, newGap *big.Int
 	if len == -1 {
 		//logs > 10000 end = start+(gap/2)
@@ -243,4 +263,3 @@ func CrawlData(page int) {
 	}
 	return startBlock, endBlock, newGap
 }
-*/

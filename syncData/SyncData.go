@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"math/big"
 	"sync"
+	"time"
 )
 
 func SyncData(client *ethclient.Client, from int64, oracles map[string]byte, contractABI abi.ABI, wg *sync.WaitGroup) {
@@ -36,10 +37,13 @@ func SyncData(client *ethclient.Client, from int64, oracles map[string]byte, con
 
 func TSyncData(client *ethclient.Client, from int64, oracles []string, contractABI abi.ABI, wg *sync.WaitGroup) {
 	for true {
+		time.Sleep(time.Millisecond * 300)
 		//get block data
 		blockNum, err := client.BlockByNumber(context.Background(), big.NewInt(from))
 		if err != nil {
 			log.Error("BlockByNumber:", err)
+			time.Sleep(time.Second * 10)
+			continue
 		}
 
 		if blockNum == nil && err.Error() == "not found" {
@@ -50,7 +54,10 @@ func TSyncData(client *ethclient.Client, from int64, oracles []string, contractA
 		//oracleType := utils.TCheckOracleType(client,blockNum.Transactions(), oracles)
 
 		//filter and save nft data
-		utils.TScanLog(client, contractABI, oracles, from)
+		err = utils.TScanLog(client, contractABI, oracles, from)
+		if err != nil && err.Error() == "too many requests" {
+			continue
+		}
 		fmt.Println(from)
 		from += 1
 	}

@@ -1,7 +1,7 @@
 # SyncNftData
 ##DDL
 
-DROP TABLE IF EXISTS nft_data;
+
 CREATE TABLE nft_data(
 ID VARCHAR(32)    COMMENT '租户号' ,
 CREATED_TIME DATETIME    COMMENT '创建时间' ,
@@ -13,3 +13,14 @@ TOKEN_NAME VARCHAR(255)    COMMENT '' ,
 OWNER VARCHAR(255)    COMMENT '' ,
 ORACLE_ADD VARCHAR(255)    COMMENT ''
 )  COMMENT = '数据表';
+
+DROP TABLE IF EXISTS ORACLE_DATA;
+CREATE TABLE `ORACLE_DATA` (
+`ID` int(11) NOT NULL AUTO_INCREMENT,
+`created_time` varchar(255) DEFAULT NULL,
+`updated_time` varchar(255) DEFAULT NULL,
+`address` varchar(255) DEFAULT NULL,
+`token_symbol` varchar(255) DEFAULT NULL,
+`token_name` varchar(255) DEFAULT NULL,
+PRIMARY KEY (`ID`)
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4

@@ -82,7 +82,7 @@ func initClient() *ethclient.Client {
 
 func initClients() []*ethclient.Client {
 	var clients []*ethclient.Client
-	for i := 1; i < 3; i++ {
+	for i := 1; i < 14; i++ {
 		url := APPVIPER.GetString("node.url" + strconv.Itoa(i))
 		client, err := ethclient.Dial(url)
 		if err != nil {

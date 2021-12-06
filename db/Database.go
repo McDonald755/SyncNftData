@@ -23,7 +23,7 @@ func SaveOrUpdateNftData(nft *NFT_DATA) {
 	}
 }
 
-func GetOracleAddrAll() map[string]byte {
+func GetOracleAddrAll() (map[string]byte, int) {
 	var (
 		addres []string
 		result map[string]byte
@@ -33,7 +33,7 @@ func GetOracleAddrAll() map[string]byte {
 	for _, addre := range addres {
 		result[addre] = byte(1)
 	}
-	return result
+	return result, len(addres)
 }
 
 func TGetOracleAddrAll() []string {
