@@ -2,6 +2,9 @@ package db
 
 import (
 	"SyncNftData/config"
+	log "github.com/sirupsen/logrus"
+	"strings"
+	"time"
 )
 
 func SaveOracle(oracle *ORACLE_DATA) {
@@ -13,13 +16,19 @@ func SaveOracles(oracle *[]ORACLE_DATA) {
 }
 
 func SaveOrUpdateNftData(nft *NFT_DATA) {
-	var id int64
-	result := config.DB.Table("NFT_DATA").Select("ID").Where("oracle_add,token_id", nft.OracleAdd, nft.TokenId).Find(&id)
+	var data NFT_DATA
+	result := config.DB.Table("NFT_DATA").Where("oracle_add = ? and token_id = ?", nft.OracleAdd, nft.TokenId).Find(&data)
 	if result.RowsAffected == 0 {
+		nft.CreatedTime = time.Now()
+		nft.UpdatedTime = time.Now()
 		config.DB.Create(nft)
 	} else {
-		nft.ID = id
-		config.DB.Save(nft)
+		data.TokenId = nft.TokenId
+		data.TokenUri = nft.TokenUri
+		data.Owner = nft.Owner
+		data.OracleAdd = nft.OracleAdd
+		data.UpdatedTime = time.Now()
+		config.DB.Save(data)
 	}
 }
 
@@ -41,8 +50,56 @@ func TGetOracleAddrAll() []string {
 		addres []string
 	)
 	config.DB.Table("ORACLE_DATA").Select("address").Find(&addres)
-
 	return addres
+}
+
+func UpdateNftApproval(nft *NFT_DATA) {
+	var data NFT_DATA
+	s := config.DB.Table("NFT_DATA").Where("oracle_add = ? and token_id = ?", nft.OracleAdd, nft.TokenId).Find(&data)
+	if s.Error != nil {
+		log.Error("UpdateNftApproval error", s.Error)
+	}
+	if s.RowsAffected == 0 {
+		nft.CreatedTime = time.Now()
+		nft.UpdatedTime = time.Now()
+		//Splicing results
+		nft.TokenApproval = nft.TokenApproval + ","
+		config.DB.Create(nft)
+	} else {
+		//Splicing results
+		data.TokenApproval = nft.TokenApproval + "," + data.TokenApproval
+		data.UpdatedTime = time.Now()
+		config.DB.Save(data)
+	}
+}
+
+func UpdateOracleApprove(oracle *ORACLE_DATA, s string) {
+	data := ORACLE_DATA{}
+	find := config.DB.Table("ORACLE_DATA").Where("address = ?", oracle.Address).Find(&data)
+	if find.Error != nil {
+		log.Error("UpdateOracleApprove error", find.Error)
+	}
+	if s == "0" {
+		//cancel approval
+		toArray := stringToArray(data.ApprovalAll)
+		for _, account := range toArray {
+			if account != oracle.ApprovalAll {
+				toArray = append(toArray, account)
+			}
+		}
+		data.ApprovalAll = removeSameValue(toArray)
+
+	} else if s == "1" {
+		//set approval
+		array := stringToArray(data.ApprovalAll)
+		array = append(array, oracle.ApprovalAll)
+		data.ApprovalAll = removeSameValue(array)
+	}
+	data.UpdatedTime = time.Now()
+	save := config.DB.Save(data)
+	if save.Error != nil {
+		log.Error(save.Error)
+	}
 }
 
 /**
@@ -78,3 +135,31 @@ func GetOracleNum() int64 {
 }
 
 }*/
+func removeSameValue(s []string) string {
+	if len(s) != 0 {
+		var (
+			m      map[string]byte
+			result string
+		)
+		m = make(map[string]byte)
+
+		for _, s2 := range s {
+			m[s2] = byte(1)
+		}
+
+		for k, _ := range m {
+			if k != "" {
+				result = k + "," + result
+			}
+		}
+		return result
+	}
+	return ""
+}
+
+func stringToArray(s string) []string {
+	if s != "" {
+		return strings.Split(s, ",")
+	}
+	return nil
+}

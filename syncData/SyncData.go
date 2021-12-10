@@ -3,7 +3,6 @@ package syncData
 import (
 	"SyncNftData/utils"
 	"context"
-	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
@@ -12,54 +11,74 @@ import (
 	"time"
 )
 
-func SyncData(client *ethclient.Client, from int64, oracles map[string]byte, contractABI abi.ABI, wg *sync.WaitGroup) {
+func SyncData(client *ethclient.Client, from int64, oracles []string, contractABI abi.ABI, wg *sync.WaitGroup) {
+	oraclesToMap := utils.OraclesToMap(oracles)
+	var newOracles map[string]byte
+	newOracles = make(map[string]byte)
 	for true {
 		//get block data
 		blockNum, err := client.BlockByNumber(context.Background(), big.NewInt(from))
-		if err != nil {
+		if err != nil && err.Error() != "not found" {
 			log.Error("BlockByNumber:", err)
+			continue
 		}
-
 		if blockNum == nil && err.Error() == "not found" {
 			continue
 		}
 
 		//Analyze the transaction
-		oracleType := utils.CheckOracleType(client, blockNum.Transactions(), oracles)
+		newLen := utils.CheckOracleType(client, blockNum.Transactions(), oraclesToMap, newOracles)
+		if newLen <= 0 {
+			from += 1
+			continue
+		}
 
-		//filter and save nft data
-		utils.ScanLog(client, contractABI, oracleType, from)
-		fmt.Println(from)
+		err = utils.ScanLog(client, contractABI, newOracles, from)
+		if err != nil && err.Error() == "too many requests" {
+			time.Sleep(time.Second * 10)
+			continue
+		} else if err != nil && err.Error() != "too many requests" {
+			log.Error("Main func get log error", err, "block num is :", from)
+		}
+
+		oraclesToMap = newOracles
 		from += 1
 	}
 	wg.Done()
 }
 
-func TSyncData(client *ethclient.Client, from int64, oracles []string, contractABI abi.ABI, wg *sync.WaitGroup) {
+func TSyncData(client *ethclient.Client, from int64, oracles []string, contractABI abi.ABI, wg *sync.WaitGroup, num int64, i int) {
+	var gap int64
+	if from < num-50 {
+		gap = 50
+	} else {
+		gap = 1
+	}
+
 	for true {
-		time.Sleep(time.Millisecond * 300)
-		//get block data
-		blockNum, err := client.BlockByNumber(context.Background(), big.NewInt(from))
-		if err != nil {
-			log.Error("BlockByNumber:", err)
+		if from > num {
+			number, err := client.BlockNumber(context.Background())
+			if err != nil {
+				log.Error("Get BlockNumber error:", err)
+			}
+			if from > int64(number) {
+				continue
+			}
+			from -= gap - 1
+			gap = 1
+		}
+		err := utils.TScanLog(client, contractABI, oracles, from, gap)
+		//rate limit
+		if err != nil && err.Error() == "too many requests" {
 			time.Sleep(time.Second * 10)
 			continue
-		}
-
-		if blockNum == nil && err.Error() == "not found" {
+		} else if err != nil && err.Error() != "too many requests" {
+			log.Error("Get log error :", i, ":", err)
 			continue
 		}
+		//fmt.Println(i, ":", from)
 
-		//Analyze the transaction
-		//oracleType := utils.TCheckOracleType(client,blockNum.Transactions(), oracles)
-
-		//filter and save nft data
-		err = utils.TScanLog(client, contractABI, oracles, from)
-		if err != nil && err.Error() == "too many requests" {
-			continue
-		}
-		fmt.Println(from)
-		from += 1
+		from += gap
 	}
 	wg.Done()
 }

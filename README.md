@@ -1,26 +1,29 @@
 # SyncNftData
 ##DDL
 
-
-CREATE TABLE nft_data(
-ID VARCHAR(32)    COMMENT '租户号' ,
-CREATED_TIME DATETIME    COMMENT '创建时间' ,
-UPDATED_TIME DATETIME    COMMENT '更新时间' ,
-TOKEN_ID VARCHAR(255)    COMMENT '' ,
-TOKEN_URI VARCHAR(255)    COMMENT '' ,
-TOKEN_SYMBOL VARCHAR(255)    COMMENT '' ,
-TOKEN_NAME VARCHAR(255)    COMMENT '' ,
-OWNER VARCHAR(255)    COMMENT '' ,
-ORACLE_ADD VARCHAR(255)    COMMENT ''
-)  COMMENT = '数据表';
+DROP TABLE IF EXISTS NFT_DATA;
+CREATE TABLE `NFT_DATA` (
+`ID` int(11) NOT NULL AUTO_INCREMENT,
+`created_time` datetime DEFAULT '2000-01-01 00:00:00',
+`updated_time` datetime DEFAULT '2000-01-01 00:00:00',
+`token_id` longtext,
+`token_uri` longtext,
+`owner` varchar(64) DEFAULT NULL,
+`oracle_add` varchar(64) DEFAULT NULL,
+`token_approval` longtext,
+PRIMARY KEY (`ID`),
+KEY `owner` (`owner`),
+KEY `oracle` (`oracle_add`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 
 DROP TABLE IF EXISTS ORACLE_DATA;
 CREATE TABLE `ORACLE_DATA` (
 `ID` int(11) NOT NULL AUTO_INCREMENT,
-`created_time` varchar(255) DEFAULT NULL,
-`updated_time` varchar(255) DEFAULT NULL,
-`address` varchar(255) DEFAULT NULL,
+`created_time` datetime DEFAULT NULL,
+`updated_time` datetime DEFAULT NULL,
+`address` varchar(64) DEFAULT NULL,
 `token_symbol` varchar(255) DEFAULT NULL,
 `token_name` varchar(255) DEFAULT NULL,
+`approval_all` longtext,
 PRIMARY KEY (`ID`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4
+) ENGINE=InnoDB  CHARSET=utf8mb4
