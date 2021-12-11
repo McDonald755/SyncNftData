@@ -3,6 +3,7 @@ package syncData
 import (
 	"SyncNftData/utils"
 	"context"
+	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
@@ -29,6 +30,7 @@ func SyncData(client *ethclient.Client, from int64, oracles []string, contractAB
 		//Analyze the transaction
 		newLen := utils.CheckOracleType(client, blockNum.Transactions(), oraclesToMap, newOracles)
 		if newLen <= 0 {
+			fmt.Println("mian:", from)
 			from += 1
 			continue
 		}
@@ -42,6 +44,7 @@ func SyncData(client *ethclient.Client, from int64, oracles []string, contractAB
 		}
 
 		oraclesToMap = newOracles
+		fmt.Println("main:", from)
 		from += 1
 	}
 	wg.Done()
@@ -66,6 +69,7 @@ func TSyncData(client *ethclient.Client, from int64, oracles []string, contractA
 			}
 			from -= gap - 1
 			gap = 1
+			num = int64(number)
 		}
 		err := utils.TScanLog(client, contractABI, oracles, from, gap)
 		//rate limit
@@ -76,8 +80,7 @@ func TSyncData(client *ethclient.Client, from int64, oracles []string, contractA
 			log.Error("Get log error :", i, ":", err)
 			continue
 		}
-		//fmt.Println(i, ":", from)
-
+		fmt.Println("from:", from)
 		from += gap
 	}
 	wg.Done()

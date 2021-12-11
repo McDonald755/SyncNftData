@@ -19,8 +19,8 @@ KEY `oracle` (`oracle_add`)
 DROP TABLE IF EXISTS ORACLE_DATA;
 CREATE TABLE `ORACLE_DATA` (
 `ID` int(11) NOT NULL AUTO_INCREMENT,
-`created_time` datetime DEFAULT NULL,
-`updated_time` datetime DEFAULT NULL,
+`created_time` datetime DEFAULT '2000-01-01 00:00:00',
+`updated_time` datetime DEFAULT '2000-01-01 00:00:00',
 `address` varchar(64) DEFAULT NULL,
 `token_symbol` varchar(255) DEFAULT NULL,
 `token_name` varchar(255) DEFAULT NULL,

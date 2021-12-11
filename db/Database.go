@@ -2,6 +2,7 @@ package db
 
 import (
 	"SyncNftData/config"
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"strings"
 	"time"
@@ -28,7 +29,18 @@ func SaveOrUpdateNftData(nft *NFT_DATA) {
 		data.Owner = nft.Owner
 		data.OracleAdd = nft.OracleAdd
 		data.UpdatedTime = time.Now()
-		config.DB.Save(data)
+		save := config.DB.Save(data)
+
+		//uri maybe error
+		if save.Error != nil {
+			fmt.Println("“11111111111111111”")
+			data.TokenId = nft.TokenId
+			data.TokenUri = "Undefined"
+			data.Owner = nft.Owner
+			data.OracleAdd = nft.OracleAdd
+			data.UpdatedTime = time.Now()
+			config.DB.Save(data)
+		}
 	}
 }
 
