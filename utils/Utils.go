@@ -175,8 +175,8 @@ func ScanLog(client *ethclient.Client, contractABI abi.ABI, addres map[string]by
 }
 
 func loopFilterLog(client *ethclient.Client, filterLogs []types.Log) {
-	for _, l := range filterLogs {
-		dealLogMessage(client, l)
+	for i := len(filterLogs) - 1; i > 0; i-- {
+		dealLogMessage(client, filterLogs[i])
 	}
 }
 
@@ -207,8 +207,7 @@ func dealLogMessage(client *ethclient.Client, l types.Log) {
 	case "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925":
 		//Approval
 		var (
-			i   = uint256.NewInt(0)
-			uri = "Undefined"
+			i = uint256.NewInt(0)
 		)
 		if len(l.Topics) == 4 {
 			//tokenID= topic【3】
@@ -224,11 +223,9 @@ func dealLogMessage(client *ethclient.Client, l types.Log) {
 				i = u
 			}
 		}
-		uri = getTokenUrI(client, l.Address.String(), i.ToBig())
 		data := ES.EsEnity{
 			ID:            StringTohash(strings.ToLower(l.Address.String()) + i.ToBig().String()),
 			TokenId:       i.ToBig().String(),
-			TokenUri:      uri,
 			Owner:         strings.ToLower(common.HexToAddress(l.Topics[1].String()).String()),
 			OracleAddr:    strings.ToLower(l.Address.String()),
 			TokenApproval: strings.ToLower(common.HexToAddress(l.Topics[2].String()).String()),

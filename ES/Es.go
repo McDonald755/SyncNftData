@@ -12,7 +12,6 @@ import (
 )
 
 func UpdateData(data *EsEnity) {
-	//先通过id取出approval
 	var r db.NFT_DATA
 	result, err := GetByID4ES(context.Background(), "nft", data.ID)
 	if err != nil {
