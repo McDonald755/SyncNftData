@@ -8,8 +8,8 @@ import (
 func GetOracleDataCmd() *cobra.Command {
 	var startNum, page int64
 	scanCmd := &cobra.Command{
-		Use:   "init",
-		Short: "i",
+		Use:   "data",
+		Short: "o",
 		Long:  "It will init oracle data by bscscan ",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			utils.CrawlData(startNum, page)

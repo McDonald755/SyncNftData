@@ -1,40 +1,35 @@
 package main
 
 import (
-	"SyncNftData/config"
-	"SyncNftData/db"
 	"SyncNftData/log"
-	"SyncNftData/oracle"
-	"SyncNftData/syncData"
-	"context"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"strings"
-	"sync"
+	"SyncNftData/utils"
 	"time"
 )
 
 func main() {
 	log.ConfigLocalFilesystemLogger("./errorLog", "log", time.Hour*24*14, time.Hour*24)
 	//cmd.Execute()
-	startNum := 1
-	syncNum := 5554071
-	wg := sync.WaitGroup{}
 
-	//init oracle data
-	Oracles := db.TGetOracleAddrAll()
-	//init standard ERC-721 contract data
-	contractABI, _ := abi.JSON(strings.NewReader(oracle.OracleABI))
+	//wg := sync.WaitGroup{}
+	//
+	//  //init oracle data
+	//  Oracles := db.GetOracleAddrAll()
+	//  //init standard ERC-721 contract data
+	//  contractABI, _ := abi.JSON(strings.NewReader(oracle.OracleABI))
+	//  startNum := 10000
+	//  //init data
+	//  oracleNum := len(Oracles)
+	//  //clientLen := len(config.CLIENTS)
+	//  num := oracleNum / 50
+	//  gap := int64(100)
+	//  //newNum, _ := config.CLIENTS[0].BlockNumber(context.Background())
+	//  for i := 0; i < 50; i++ {
+	//  time.Sleep(time.Millisecond * 300)
+	//  wg.Add(1)
+	//  a := i%3
+	//  go syncData.InitData(config.CLIENTS[a], int64(13407786), Oracles[i*num:(i+1)*num], contractABI, &wg, int64(startNum), gap, a)
+	//  }
+	//  wg.Wait()
 
-	//init data
-	oracleNum := len(Oracles)
-	clientLen := len(config.CLIENTS)
-	num := oracleNum / clientLen
-	number, _ := config.CLIENTS[0].BlockNumber(context.Background())
-
-	wg.Add(1)
-	go syncData.TSyncData(config.CLIENTS[0], int64(startNum), Oracles[:num], contractABI, &wg, int64(number), 1)
-
-	wg.Add(1)
-	go syncData.SyncData(config.CLIENTS[clientLen-1], int64(syncNum), Oracles, contractABI, &wg)
-	wg.Wait()
+	utils.CrawlData(1, 181)
 }

@@ -15,6 +15,7 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	rootCmd.AddCommand(
 		SyncCmd(),
+		InitCmd(),
 		GetOracleDataCmd(),
 	)
 

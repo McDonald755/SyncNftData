@@ -1,27 +1,31 @@
 package utils
 
 import (
+	"SyncNftData/ES"
 	"SyncNftData/config"
 	"SyncNftData/db"
 	"SyncNftData/oracle"
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/holiman/uint256"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
+	"io"
+	"time"
+
 	"math/big"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
+	"sync"
 )
 
 func CheckOracleType(client *ethclient.Client, trxs types.Transactions, oracles map[string]byte, newOracles map[string]byte) int {
@@ -61,10 +65,10 @@ func CheckOracleType(client *ethclient.Client, trxs types.Transactions, oracles 
 
 				//filter new oracle data
 				if _, ok := oracles[receipt.ContractAddress.String()]; !ok {
-					s := receipt.ContractAddress.String()
+					s := strings.ToLower(receipt.ContractAddress.String())
 					newOracles[s] = byte(1)
 					//save data
-					go transferOracle(client, receipt.ContractAddress.String())
+					go transferOracle(client, s)
 				}
 			}
 		}
@@ -87,8 +91,6 @@ func transferOracle(client *ethclient.Client, addres string) {
 		Address:     addres,
 		TokenSymbol: symbol,
 		TokenName:   name,
-		CreatedTime: time.Now(),
-		UpdatedTime: time.Now(),
 	}
 	db.SaveOracle(&data)
 }
@@ -101,7 +103,7 @@ func getTokenNameAndSymbol(client *ethclient.Client, addr string) (string, strin
 	}
 	symbol, err := newOracle.Symbol(nil)
 	if err != nil {
-		log.Error("Get Token Symbol Error:", err, "Oracle Addr Is :", addr)
+		log.Error("Get Token Symbol Error:", err)
 		s = "Undefined"
 	} else {
 		s = symbol
@@ -109,7 +111,7 @@ func getTokenNameAndSymbol(client *ethclient.Client, addr string) (string, strin
 
 	name, err := newOracle.Name(nil)
 	if err != nil {
-		log.Error("Get Token Name Error:", err, "Oracle Addr Is :", addr)
+		log.Error("Get Token Name Error:", err)
 		n = "Undefined"
 	} else {
 		n = name
@@ -169,7 +171,6 @@ func ScanLog(client *ethclient.Client, contractABI abi.ABI, addres map[string]by
 		return err
 	}
 	go loopFilterLog(client, filterLogs)
-
 	return nil
 }
 
@@ -179,7 +180,7 @@ func loopFilterLog(client *ethclient.Client, filterLogs []types.Log) {
 	}
 }
 
-func TScanLog(client *ethclient.Client, contractABI abi.ABI, addres []string, from int64, gap int64) error {
+func ScanLogByInitData(client *ethclient.Client, contractABI abi.ABI, addres []string, from int64, gap int64) error {
 	accounts := TTransferAccounts(addres)
 	query := ethereum.FilterQuery{
 		Topics: [][]common.Hash{
@@ -187,8 +188,8 @@ func TScanLog(client *ethclient.Client, contractABI abi.ABI, addres []string, fr
 				contractABI.Events["Transfer"].ID,
 				contractABI.Events["ApprovalForAll"].ID},
 		},
-		FromBlock: big.NewInt(from),
-		ToBlock:   big.NewInt(from + gap),
+		FromBlock: big.NewInt(from - gap),
+		ToBlock:   big.NewInt(from),
 		Addresses: *accounts,
 	}
 
@@ -197,9 +198,7 @@ func TScanLog(client *ethclient.Client, contractABI abi.ABI, addres []string, fr
 		return err
 	}
 
-	for _, l := range filterLogs {
-		dealLogMessage(client, l)
-	}
+	loopFilterLog(client, filterLogs)
 	return nil
 }
 
@@ -222,17 +221,48 @@ func dealLogMessage(client *ethclient.Client, l types.Log) {
 				i = u
 			}
 		}
-		data := db.NFT_DATA{
+
+		data := ES.EsEnity{
+			ID:            StringTohash(strings.ToLower(l.Address.String()) + i.ToBig().String()),
 			TokenId:       i.ToBig().String(),
-			OracleAdd:     strings.ToLower(l.Address.String()),
+			OracleAddr:    strings.ToLower(l.Address.String()),
 			TokenApproval: strings.ToLower(common.HexToAddress(l.Topics[2].String()).String()),
 		}
-		db.UpdateNftApproval(&data)
+		//fmt.Println("Approval", l.BlockNumber)
+		ES.UpdateData(&data, strings.ToLower(l.Address.String()), strings.ToLower(common.HexToAddress(l.Topics[1].String()).String()))
+
 	case "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef":
 		//Transfer
-		data := TransferNftData(client, l)
-		//fmt.Println("保存数据", from)
-		db.SaveOrUpdateNftData(data)
+		var (
+			i   = uint256.NewInt(0)
+			uri = "Undefined"
+		)
+
+		if len(l.Topics) == 4 {
+			//tokenID= topic【3】
+			u := parsingUint256(l.Topics[3].Hex(), l.TxHash.String())
+			if u != nil {
+				i = u
+			}
+		} else {
+			//tokenID = l.data
+			toString := hex.EncodeToString(l.Data)
+			u := parsingUint256(toString, l.TxHash.String())
+			if u != nil {
+				i = u
+			}
+		}
+
+		uri = getTokenUrI(client, l.Address.String(), i.ToBig())
+		data := ES.EsEnity{
+			ID:         StringTohash(strings.ToLower(l.Address.String()) + i.ToBig().String()),
+			TokenId:    i.ToBig().String(),
+			TokenUri:   uri,
+			Owner:      strings.ToLower(common.HexToAddress(l.Topics[2].Hex()).String()),
+			OracleAddr: strings.ToLower(l.Address.String()),
+		}
+		//fmt.Println("Transfer", l.BlockNumber)
+		ES.SaveOrUpdateData(&data)
 	case "0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31":
 		//ApprovalForAll
 		i := uint256.NewInt(0)
@@ -254,83 +284,9 @@ func dealLogMessage(client *ethclient.Client, l types.Log) {
 			Address:     strings.ToLower(l.Address.String()),
 			ApprovalAll: strings.ToLower(common.HexToAddress(l.Topics[2].String()).String()),
 		}
-		db.UpdateOracleApprove(&data, i.ToBig().String())
+		//fmt.Println("ApprovalForAll", l.BlockNumber)
+		go db.UpdateOracleApprove(&data, i.ToBig().String())
 	}
-}
-
-//func T2ScanLog(client *ethclient.Client, contractABI abi.ABI, addres []string, from int64, to int64) error {
-//	gap := big.NewInt(100)
-//	for from < to {
-//		s := big.NewInt(from)
-//		e := s.Add(s, gap)
-//
-//		accounts := TTransferAccounts(addres)
-//		query := ethereum.FilterQuery{
-//			Topics: [][]common.Hash{
-//				{contractABI.Events["Transfer"].ID},
-//			},
-//			FromBlock: s,
-//			ToBlock:   e,
-//			Addresses: *accounts,
-//		}
-//
-//		filterLogs, err := client.FilterLogs(context.Background(), query)
-//		if err != nil {
-//			switch err.Error() {
-//			//rate limit
-//			case "too many requests":
-//				time.Sleep(time.Second * 10)
-//			default:
-//				log.Error("Get log error:", err)
-//			}
-//		}
-//
-//		if err != nil && err.Error() == "" {
-//			s, e, gap = CalculateBlock(gap, -1, gap)
-//			continue
-//		}
-//		s, e, gap = CalculateBlock(gap, len(filterLogs), gap)
-//
-//		for _, l := range filterLogs {
-//			data := TransferNftData(client, l)
-//			fmt.Println("保存数据", from)
-//			log.Infoln("保存数据", from)
-//			db.SaveOrUpdateNftData(data)
-//		}
-//		from += 1
-//	}
-//	return nil
-//}
-
-func TransferNftData(client *ethclient.Client, l types.Log) *db.NFT_DATA {
-	var (
-		i   = uint256.NewInt(0)
-		uri = "Undefined"
-	)
-
-	if len(l.Topics) == 4 {
-		//tokenID= topic【3】
-		u := parsingUint256(l.Topics[3].Hex(), l.TxHash.String())
-		if u != nil {
-			i = u
-		}
-	} else {
-		//tokenID = l.data
-		toString := hex.EncodeToString(l.Data)
-		u := parsingUint256(toString, l.TxHash.String())
-		if u != nil {
-			i = u
-		}
-	}
-
-	uri = getTokenUrI(client, l.Address.String(), i.ToBig())
-	data := db.NFT_DATA{
-		TokenId:   i.ToBig().String(),
-		TokenUri:  uri,
-		Owner:     strings.ToLower(common.HexToAddress(l.Topics[2].Hex()).String()),
-		OracleAdd: strings.ToLower(l.Address.String()),
-	}
-	return &data
 }
 
 func TransferAccounts(addres map[string]byte) *[]common.Address {
@@ -350,73 +306,21 @@ func TTransferAccounts(addres []string) *[]common.Address {
 }
 
 //get 721Token message by bsc
-func CrawlData(from int, page int) {
-	type AutoGenerated struct {
-		Data struct {
-			Data []struct {
-				ID string `json:"_id"`
-			} `json:"data"`
-		} `json:"data"`
-	}
-
-	var result []string
-	datas := []db.ORACLE_DATA{}
-	url := "https://explorer.kcc.io/v2api/rc721/get721token?uniqueId=kcs&pageNum="
+func CrawlData(from int64, page int64) {
+	wg := sync.WaitGroup{}
 	for i := from; i <= page; i++ {
-		var vo AutoGenerated
-		get, err := http.Get(url + strconv.Itoa(i) + "&pageSize=50")
+		url := "https://bscscan.com/tokens-nft?ps=100&p=" + strconv.Itoa(int(i))
+		get, err := http.Get(url)
 		if err != nil {
-			fmt.Println(err)
+			log.Error(err)
+			i -= 1
+			continue
 		}
-		all, err := ioutil.ReadAll(get.Body)
-		if err != nil {
-			fmt.Println(err)
-		}
-		json.Unmarshal(all, &vo)
-
-		for _, item := range vo.Data.Data {
-			result = append(result, item.ID)
-		}
+		wg.Add(1)
+		go r(get.Body, config.CLIENTS[0], &wg, i)
 	}
-
-	for _, item := range result {
-		s, n := getTokenNameAndSymbol(config.CLIENTS[0], item)
-		data := db.ORACLE_DATA{
-			CreatedTime: time.Now(),
-			UpdatedTime: time.Now(),
-			Address:     item,
-			TokenName:   n,
-			TokenSymbol: s,
-		}
-		datas = append(datas, data)
-	}
-	db.SaveOracles(&datas)
+	wg.Wait()
 }
-
-//func CalculateBlock(from *big.Int, len int, gap *big.Int) (*big.Int, *big.Int, *big.Int) {
-//	var startBlock, endBlock, newGap *big.Int
-//	if len == -1 {
-//		//logs > 5000 end = start+(gap/2)
-//		startBlock = from
-//		newGap = newGap.Quo(gap, big.NewInt(2))
-//		endBlock = endBlock.Add(startBlock, newGap)
-//	} else if len < 2500 {
-//		// logs < 2500 start=from+gap end=start +newGap
-//		startBlock = startBlock.Add(from, gap)
-//		newGap = newGap.Mul(gap, big.NewInt(2))
-//		endBlock = endBlock.Add(startBlock, newGap)
-//	}
-//	return startBlock, endBlock, newGap
-//}
-
-//func filterString(s string) string {
-//	compile := regexp.MustCompile("^[0]+")
-//	findString := compile.FindString(s[2:])
-//	if findString == "0000000000000000000000000000000000000000000000000000000000000000" {
-//		return "0x0"
-//	}
-//	return "0x" + s[len(findString)+2:]
-//}
 
 func parsingUint256(s string, hash string) *uint256.Int {
 	var result string
@@ -431,11 +335,42 @@ func parsingUint256(s string, hash string) *uint256.Int {
 			result = "0x" + s[len(findString)+2:]
 		}
 	}
-
 	fromHex, err := uint256.FromHex(result)
 	if err != nil {
 		log.Error("Hash is:", hash, "value is:", s, "\n", err)
 		return nil
 	}
 	return fromHex
+}
+
+func r(r io.Reader, client *ethclient.Client, wg *sync.WaitGroup, i int64) {
+	datas := []db.ORACLE_DATA{}
+	reader, err := goquery.NewDocumentFromReader(r)
+	if err != nil {
+		log.Error(err)
+	}
+	reader.Find(".text-primary").Each(func(i int, s *goquery.Selection) {
+		//var symbol string
+		attr, _ := s.Attr("href")
+		if attr != "https://etherscan.io/" && s.Text() != "Etherscan" {
+			attr = attr[7:]
+			//symbol = getTokenSymbol(client, attr)
+			data := db.ORACLE_DATA{
+				Address:     strings.ToLower(attr),
+				TokenName:   s.Text(),
+				TokenSymbol: "Undefined",
+				CreatedTime: time.Now(),
+				UpdatedTime: time.Now(),
+			}
+			datas = append(datas, data)
+		}
+	})
+	db.SaveOracles(&datas)
+	fmt.Println(i)
+	wg.Done()
+}
+
+func StringTohash(s string) string {
+	keccak256 := crypto.Keccak256Hash([]byte(s))
+	return keccak256.String()
 }

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/olivere/elastic/v7"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
@@ -19,6 +20,7 @@ var (
 	DB       *gorm.DB
 	CLIENTS  []*ethclient.Client
 	//CLIENT *ethclient.Client
+	EsCli *elastic.Client
 )
 
 func init() {
@@ -26,6 +28,7 @@ func init() {
 	DB = initDB()
 	//CLIENT = initClient()
 	CLIENTS = initClients()
+	EsCli = initElasticSearch()
 }
 
 func initAppConfig() *viper.Viper {
@@ -93,4 +96,15 @@ func initClients() []*ethclient.Client {
 	}
 	log.Infoln("connect client success")
 	return clients
+}
+
+func initElasticSearch() *elastic.Client {
+	url := APPVIPER.GetString("elasticSearch.host")
+	cli, err := elastic.NewSimpleClient(
+		elastic.SetURL(url),
+	)
+	if err != nil {
+		panic("new es client failed, err=" + err.Error())
+	}
+	return cli
 }
