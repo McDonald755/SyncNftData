@@ -11,24 +11,25 @@ import (
 	"time"
 )
 
-func UpdateData(data *EsEnity, lower string, owner string) {
+func UpdateData(data *EsEnity) {
 	//先通过id取出approval
 	var r db.NFT_DATA
 	result, err := GetByID4ES(context.Background(), "nft", data.ID)
 	if err != nil {
 		//log.Error("GetByID4ES", err)
 		//log.Error(data.TokenId, "---------", lower)
+		data.CreatedTime = time.Now()
+		data.UpdatedTime = time.Now()
 		marshal, _ := json.Marshal(data)
 		Create(context.Background(), "nft", data.ID, string(marshal))
 	} else {
 		json.Unmarshal([]byte(result), &r)
-		if r.Owner == owner {
+		if r.Owner == data.Owner {
 			if data.TokenApproval == "0x0000000000000000000000000000000000000000" {
 				r.TokenApproval = ""
 			} else {
 				r.TokenApproval = data.TokenApproval + "," + r.TokenApproval
 			}
-			r.UpdatedTime = time.Now()
 			//然后拼接字段更新数据
 			err1 := Update(context.Background(), "nft", data.ID, map[string]interface{}{"updated_time": time.Now(), "token_approval": r.TokenApproval})
 			if err1 != nil {

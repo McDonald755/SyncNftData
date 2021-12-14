@@ -206,7 +206,10 @@ func dealLogMessage(client *ethclient.Client, l types.Log) {
 	switch l.Topics[0].String() {
 	case "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925":
 		//Approval
-		i := uint256.NewInt(0)
+		var (
+			i   = uint256.NewInt(0)
+			uri = "Undefined"
+		)
 		if len(l.Topics) == 4 {
 			//tokenID= topic【3】
 			u := parsingUint256(l.Topics[3].Hex(), l.TxHash.String())
@@ -221,15 +224,17 @@ func dealLogMessage(client *ethclient.Client, l types.Log) {
 				i = u
 			}
 		}
-
+		uri = getTokenUrI(client, l.Address.String(), i.ToBig())
 		data := ES.EsEnity{
 			ID:            StringTohash(strings.ToLower(l.Address.String()) + i.ToBig().String()),
 			TokenId:       i.ToBig().String(),
+			TokenUri:      uri,
+			Owner:         strings.ToLower(common.HexToAddress(l.Topics[1].String()).String()),
 			OracleAddr:    strings.ToLower(l.Address.String()),
 			TokenApproval: strings.ToLower(common.HexToAddress(l.Topics[2].String()).String()),
 		}
 		//fmt.Println("Approval", l.BlockNumber)
-		ES.UpdateData(&data, strings.ToLower(l.Address.String()), strings.ToLower(common.HexToAddress(l.Topics[1].String()).String()))
+		ES.UpdateData(&data)
 
 	case "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef":
 		//Transfer

@@ -9,7 +9,7 @@ database:
   loc: Asia/Shanghai
 
 elasticSearch:
-  host: "http://127.0.0.1:9200"
+  host: "http://8.210.48.242:9200/"
 
 node:
 #  url1: "https://bsc-mainnet.nodereal.io/v1/14d352cbf13b4098afbe977fb3c4b2b3"

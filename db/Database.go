@@ -20,7 +20,7 @@ func GetOracleAddrAll() []string {
 	var (
 		addres []string
 	)
-	config.DB.Table("ORACLE_DATA").Select("address").Limit(9000).Find(&addres)
+	config.DB.Table("ORACLE_DATA").Select("address").Order("ID").Limit(9000).Find(&addres)
 	return addres
 }
 
