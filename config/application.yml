@@ -9,18 +9,4 @@ database:
   loc: Asia/Shanghai
 node:
   url1: "https://rpc-mainnet.kcc.network"
-#  url1: "https://bsc-dataseed4.binance.org/"
-#  url2: "https://bsc-dataseed1.defibit.io"
-#  url3: "https://bsc-dataseed1.ninicoin.io/"
-#  url4: "https://bsc-dataseed2.defibit.io/"
-#  url5: "https://bsc-dataseed3.defibit.io/"
-#  url6: "https://bsc-dataseed4.defibit.io/"
-#  url7: "https://bsc-dataseed2.ninicoin.io/"
-#  url8: "https://bsc-dataseed3.ninicoin.io/"
-#  url9: "https://bsc-dataseed4.ninicoin.io/"
-#  url10: "https://bsc-dataseed1.binance.org/"
-#  url11: "https://bsc-dataseed2.binance.org/"
-#  url12: "https://bsc-dataseed3.binance.org/"
-#  url13: "https://bsc-dataseed.binance.org/"
-    #main node
 

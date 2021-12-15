@@ -30,7 +30,7 @@ func SyncData(client *ethclient.Client, from int64, oracles []string, contractAB
 		//Analyze the transaction
 		newLen := utils.CheckOracleType(client, blockNum.Transactions(), oraclesToMap, newOracles)
 		if newLen <= 0 {
-			fmt.Println("mian:", from)
+			fmt.Println("main:", from)
 			from += 1
 			continue
 		}
@@ -77,6 +77,7 @@ func TSyncData(client *ethclient.Client, from int64, oracles []string, contractA
 			time.Sleep(time.Second * 10)
 			continue
 		} else if err != nil && err.Error() != "too many requests" {
+			time.Sleep(time.Second * 10)
 			log.Error("Get log error :", i, ":", err)
 			continue
 		}

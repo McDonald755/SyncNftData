@@ -3,9 +3,8 @@ module SyncNftData
 go 1.16
 
 require (
-	github.com/PuerkitoBio/goquery v1.8.0 // indirect
 	github.com/ethereum/go-ethereum v1.10.13
-	github.com/holiman/uint256 v1.2.0 // indirect
+	github.com/holiman/uint256 v1.2.0
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/lestrrat-go/strftime v1.0.5 // indirect

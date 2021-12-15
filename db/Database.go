@@ -18,7 +18,7 @@ func SaveOracles(oracle *[]ORACLE_DATA) {
 
 func SaveOrUpdateNftData(nft *NFT_DATA) {
 	var data NFT_DATA
-	result := config.DB.Table("NFT_DATA").Where("oracle_add = ? and token_id = ?", nft.OracleAdd, nft.TokenId).Find(&data)
+	result := config.DB.Table("NFT_DATA").Where("oracle_addr = ? and token_id = ?", nft.OracleAddr, nft.TokenId).Find(&data)
 	if result.RowsAffected == 0 {
 		nft.CreatedTime = time.Now()
 		nft.UpdatedTime = time.Now()
@@ -27,7 +27,7 @@ func SaveOrUpdateNftData(nft *NFT_DATA) {
 		data.TokenId = nft.TokenId
 		data.TokenUri = nft.TokenUri
 		data.Owner = nft.Owner
-		data.OracleAdd = nft.OracleAdd
+		data.OracleAddr = nft.OracleAddr
 		data.UpdatedTime = time.Now()
 		save := config.DB.Save(data)
 
@@ -37,7 +37,7 @@ func SaveOrUpdateNftData(nft *NFT_DATA) {
 			data.TokenId = nft.TokenId
 			data.TokenUri = "Undefined"
 			data.Owner = nft.Owner
-			data.OracleAdd = nft.OracleAdd
+			data.OracleAddr = nft.OracleAddr
 			data.UpdatedTime = time.Now()
 			config.DB.Save(data)
 		}
@@ -67,7 +67,7 @@ func TGetOracleAddrAll() []string {
 
 func UpdateNftApproval(nft *NFT_DATA) {
 	var data NFT_DATA
-	s := config.DB.Table("NFT_DATA").Where("oracle_add = ? and token_id = ?", nft.OracleAdd, nft.TokenId).Find(&data)
+	s := config.DB.Table("NFT_DATA").Where("oracle_addr = ? and token_id = ?", nft.OracleAddr, nft.TokenId).Find(&data)
 	if s.Error != nil {
 		log.Error("UpdateNftApproval error", s.Error)
 	}

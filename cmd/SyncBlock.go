@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 	"strings"
 	"sync"
-	"time"
 )
 
 /**
@@ -32,17 +31,13 @@ func SyncCmd() *cobra.Command {
 			contractABI, _ := abi.JSON(strings.NewReader(oracle.OracleABI))
 
 			//init data
-			oracleNum := len(Oracles)
-			clientLen := len(config.CLIENTS)
-			num := oracleNum / clientLen
-			number, _ := config.CLIENTS[0].BlockNumber(context.Background())
-			for i := 0; i < clientLen-1; i++ {
-				time.Sleep(time.Millisecond * 300)
-				wg.Add(1)
-				go syncData.TSyncData(config.CLIENTS[i], int64(startNum), Oracles[i*num:(i+1)*num], contractABI, &wg, int64(number), i)
-			}
+			number, _ := config.CLIENT.BlockNumber(context.Background())
+
 			wg.Add(1)
-			go syncData.SyncData(config.CLIENTS[clientLen-1], int64(syncNum), Oracles, contractABI, &wg)
+			go syncData.TSyncData(config.CLIENT, int64(startNum), Oracles, contractABI, &wg, int64(number), 1)
+
+			wg.Add(1)
+			go syncData.SyncData(config.CLIENT, int64(syncNum), Oracles, contractABI, &wg)
 			wg.Wait()
 			return nil
 		},

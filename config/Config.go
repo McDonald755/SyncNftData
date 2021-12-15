@@ -17,15 +17,15 @@ import (
 var (
 	APPVIPER *viper.Viper
 	DB       *gorm.DB
-	CLIENTS  []*ethclient.Client
-	//CLIENT *ethclient.Client
+	//CLIENTS  []*ethclient.Client
+	CLIENT *ethclient.Client
 )
 
 func init() {
 	APPVIPER = initAppConfig()
 	DB = initDB()
-	//CLIENT = initClient()
-	CLIENTS = initClients()
+	CLIENT = initClient()
+	//CLIENTS = initClients()
 }
 
 func initAppConfig() *viper.Viper {

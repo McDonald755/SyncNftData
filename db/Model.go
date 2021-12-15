@@ -11,7 +11,7 @@ type NFT_DATA struct {
 	TokenId       string    `gorm:"column:token_id" json:"token_id"`
 	TokenUri      string    `gorm:"column:token_uri" json:"token_uri"`
 	Owner         string    `gorm:"column:owner" json:"owner"`
-	OracleAdd     string    `gorm:"column:oracle_add" json:"oracle_add"`
+	OracleAddr    string    `gorm:"column:oracle_addr" json:"oracle_addr"`
 	TokenApproval string    `gorm:"token_approval" json:"token_approval"`
 }
 
