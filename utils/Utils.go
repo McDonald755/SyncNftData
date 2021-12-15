@@ -170,12 +170,18 @@ func ScanLog(client *ethclient.Client, contractABI abi.ABI, addres map[string]by
 	if err != nil {
 		return err
 	}
-	go loopFilterLog(client, filterLogs)
+	go loopFilterLogDesc(client, filterLogs)
 	return nil
 }
 
-func loopFilterLog(client *ethclient.Client, filterLogs []types.Log) {
+func loopFilterLogDesc(client *ethclient.Client, filterLogs []types.Log) {
 	for i := len(filterLogs) - 1; i > 0; i-- {
+		dealLogMessage(client, filterLogs[i])
+	}
+}
+
+func loopFilterLogAsc(client *ethclient.Client, filterLogs []types.Log) {
+	for i := range filterLogs {
 		dealLogMessage(client, filterLogs[i])
 	}
 }
@@ -198,7 +204,7 @@ func ScanLogByInitData(client *ethclient.Client, contractABI abi.ABI, addres []s
 		return err
 	}
 
-	loopFilterLog(client, filterLogs)
+	loopFilterLogDesc(client, filterLogs)
 	return nil
 }
 
