@@ -5,7 +5,6 @@ import (
 	"SyncNftData/db"
 	"SyncNftData/oracle"
 	"SyncNftData/syncData"
-	"context"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/spf13/cobra"
 	"strings"
@@ -35,12 +34,11 @@ func InitCmd() *cobra.Command {
 			oracleNum := len(Oracles)
 			clientLen := len(config.CLIENTS)
 			num := oracleNum / clientLen
-			gap := int64(1000)
-			newNum, _ := config.CLIENTS[0].BlockNumber(context.Background())
+			gap := int64(100)
 			for i := 0; i < clientLen; i++ {
 				time.Sleep(time.Millisecond * 300)
 				wg.Add(1)
-				go syncData.InitData(config.CLIENTS[i], int64(newNum), Oracles[i*num:(i+1)*num], contractABI, &wg, int64(startNum), gap, i)
+				go syncData.InitData(config.CLIENTS[i], int64(endNum), Oracles[i*num:(i+1)*num], contractABI, &wg, int64(startNum), gap, i)
 			}
 			wg.Wait()
 			return nil

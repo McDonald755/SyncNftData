@@ -170,7 +170,7 @@ func ScanLog(client *ethclient.Client, contractABI abi.ABI, addres map[string]by
 	if err != nil {
 		return err
 	}
-	go loopFilterLogDesc(client, filterLogs)
+	go loopFilterLogAsc(client, filterLogs)
 	return nil
 }
 
@@ -315,7 +315,6 @@ func TTransferAccounts(addres []string) *[]common.Address {
 
 //get 721Token message by bsc
 func CrawlData(from int64, page int64) {
-	wg := sync.WaitGroup{}
 	for i := from; i <= page; i++ {
 		url := "https://bscscan.com/tokens-nft?ps=100&p=" + strconv.Itoa(int(i))
 		get, err := http.Get(url)
@@ -324,10 +323,8 @@ func CrawlData(from int64, page int64) {
 			i -= 1
 			continue
 		}
-		wg.Add(1)
-		go r(get.Body, config.CLIENTS[0], &wg, i)
+		r(get.Body, config.CLIENTS[0], nil, i)
 	}
-	wg.Wait()
 }
 
 func parsingUint256(s string, hash string) *uint256.Int {
@@ -346,7 +343,7 @@ func parsingUint256(s string, hash string) *uint256.Int {
 	fromHex, err := uint256.FromHex(result)
 	if err != nil {
 		log.Error("Hash is:", hash, "value is:", s, "\n", err)
-		return nil
+		fromHex = nil
 	}
 	return fromHex
 }
@@ -375,7 +372,6 @@ func r(r io.Reader, client *ethclient.Client, wg *sync.WaitGroup, i int64) {
 	})
 	db.SaveOracles(&datas)
 	fmt.Println(i)
-	wg.Done()
 }
 
 func StringTohash(s string) string {
